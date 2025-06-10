@@ -1,66 +1,34 @@
 "use client"
 import Link from "next/link";
-import { useState } from "react";
-import { account, ID } from "@/app/appwrite";
-import type { Models } from "appwrite";
-import { logout } from "@/lib/utility";
 
-type User = Models.User<Models.Preferences> | null;
-interface AuthFormProps{
-        mode:"Login"|"Signup"|"Reset"
-    }
+import useAuthForm from "@/lib/hooks/useAuthForm";
 
-export default function Authform({mode}:AuthFormProps){
-    const[loginedUser, setLoginedUser]=useState<User>(null)
-    const[name, setName]=useState<string>('');
-    const[email, setEmail]=useState<string>('');
-    const[password, setPassword]=useState<string>('');
-    const[confirmPassword, setConfirmPassword]=useState<string>('')
-    const[error, setError]=useState<string|null>(null)
-    // Show/hide password states
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const login= async(mail:string, pass:string)=>{
-        try{
-            await account.createEmailPasswordSession(mail, pass);
-            setLoginedUser(await account.get());
-            setError(null)
-        }catch{
-            setError("login failed")
-        }
-    }
 
-    const signup= async()=>{
-        if(password !== confirmPassword){
-            setError("Passwords do not match");
-            return;
-        }
-        try{
-            await account.create(ID.unique(), email, password, name)
-            login(email,password);
-            setError(null)
-        }catch{
-            setError("Signup Failed")
-        }
-    }
+type FormType = "Login" | "Signup";
 
-    const logOut=()=>{
-        try{
-            logout()
-            setLoginedUser(null)
-            setError(null)
-        }
-        catch{
-            setError("logout Failed")
-        }
-    }
 
+
+export default function Authform({mode}:{mode:FormType}){
+
+    const{
+        useformhooks,
+        loginedUser,
+        error,
+        showPassword,
+        setShowPassword,
+        onSubmit,
+        handleLogOut,
+        loading
+    }=useAuthForm(mode)
+
+    const { register, handleSubmit, formState: { errors } } = useformhooks;
+    
     if(loginedUser){
         return (
       <div>
         <p>Logged in as {loginedUser.name}</p>
-        <button type="button" onClick={logOut}>
+        <button type="button" onClick={handleLogOut}>
           Logout
         </button>
         {error&&<p className="text-red-500">{error}</p>}
@@ -68,75 +36,86 @@ export default function Authform({mode}:AuthFormProps){
     );
     }
     return (<div>
-            <form action="" className="flex-col">
-                {mode==="Signup"&&<div>
-                    <input type="text"
-                    placeholder="name" 
-                    required
-                    value={name}
-                    onChange={(e)=>setName(e.target.value)}
-                    className="w-full mb-6 px-4 py-2 rounded-sm border-[0.3px]  border-(--border-primary) bg-(--btn-primary) hover:bg-(--bg-secondary)" />
+            <form
+             onSubmit={handleSubmit(onSubmit)}
+             className="flex-col">
+                {(mode==="Signup")&&<div className="mb-6">
+                    <input
+                        {...register("username")}
+                        type="text"
+                        placeholder="Username"
+                        required
+                        disabled={loading}
+                        className={'username' in errors ? "border-red-500 input-auth":"border-[color:var(--border-primary)] input-auth"}
+                    />
+                    {'username' in errors &&  (
+                        <p className="text-red-500 text-xs my-1">{errors.username?.message }</p>
+                    )}
                 </div>}
-                <div>
-                    <input type="email"
+                <div className="mb-6">
+                    <input
+                    {...register("email")}   
                     placeholder="Email"
                     required
-                    value={email}
-                    onChange={(e)=>setEmail(e.target.value)}
-                    className="w-full mb-6 px-4 py-2 rounded-sm border-[0.3px]  border-(--border-primary) bg-(--btn-primary) hover:bg-(--bg-secondary)" />
+                    disabled={loading}
+                    className={errors.email?.message ? "border-red-500 input-auth":"border-[color:var(--border-primary)] input-auth"} />
+                    {errors.email?.message &&  (
+                    <p className="text-red-500 text-xs my-1">{errors.email?.message }</p>
+                    )}
                 </div>
-                <div className="relative">
+                <div className="relative mb-6">
                     <input
+                        {...register("password")}
                         type={showPassword ? "text" : "password"}
-                        placeholder={mode==="Reset"?"New Password":"Password"}
+                        placeholder={"Password"}
                         required
-                        value={password}
-                        onChange={(e)=>setPassword(e.target.value)}
-                        className="w-full mb-6 px-4 py-2 rounded-sm border-[0.3px] border-(--border-primary) bg-(--btn-primary) hover:bg-(--bg-secondary)"
+                        disabled={loading}
+                        className={errors.password?.message ? "border-red-500 input-auth":"border-[color:var(--border-primary)] input-auth"}
                     />
                     <button
                         type="button"
                         tabIndex={-1}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                        className="absolute right-3 top-[13px] text-xs text-gray-500"
                         onClick={() => setShowPassword((v) => !v)}
                     >
                         {showPassword ? "Hide" : "Show"}
                     </button>
+                    {errors.password?.message &&  (
+                    <p className="text-red-500 text-xs my-1">{errors.password?.message }</p>
+                    )}
                 </div>
                 {mode==="Signup"?
-                    <div className="relative">
-                        <input id="confirmpass"
-                        type={showConfirmPassword ? "text" : "password"}
+                    <div className="relative mt-6 mb-2">
+                        <input
+                        {...register("confirmPassword")}
+                        id="confirmpass"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Re-enter Password"
                         required
-                        value={confirmPassword}
-                        onChange={(e)=>setConfirmPassword(e.target.value)}
-                        className="w-full mb-2 px-4 py-2 rounded-sm border-[0.3px] border-(--border-primary) bg-(--btn-primary) hover:bg-(--bg-secondary)" />
+                        disabled={loading}
+                        className={'confirmPassword' in errors ? "border-red-500 input-auth":"border-[color:var(--border-primary)] input-auth"} />
                         <button
                             type="button"
                             tabIndex={-1}
-                            className="absolute right-3 top-2 text-xs text-gray-500"
-                            onClick={() => setShowConfirmPassword((v) => !v)}
+                            className="absolute right-3 top-[13px] text-xs text-gray-500" 
+                            onClick={() => setShowPassword((v) => !v)}
                         >
-                            {showConfirmPassword ? "Hide" : "Show"}
+                            {showPassword ? "Hide" : "Show"}
                         </button>
+                        {'confirmPassword' in errors &&  (
+                        <p className="text-red-500 text-xs my-1">{errors.confirmPassword?.message }</p>
+                    )}
                         <p className="text-sm mb-6 text-center text-(--text-primary)">Already have account: <Link href="/login" className="underline">Log in</Link></p>
                     </div>:<p className="text-sm mb-6 text-center text-(--text-primary)">Create new account: <Link href="/signup" className="underline">Sign up</Link> </p>
                 }
                 
                 <div>
                     <button 
-                    onClick={(e) => {
-                        e.preventDefault();
-                        if (mode === "Login") {
-                            login(email, password);
-                        } else {
-                            signup();
-                        }
-                    }}
+                        disabled={loading}
+                    type="submit"
                     className="w-full px-4 py-2 rounded-sm border-[0.3px]  border-(--border-primary) bg-(--bg-secondary) hover:bg-[#080606]">{mode}</button>
                 </div>
-                {error&&<p className="text-red-500">{error}</p>}
+                {error&&<p className="text-red-500" >{error}</p>}
             </form>
     </div>
     );
